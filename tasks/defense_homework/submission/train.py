@@ -92,7 +92,7 @@ class Adv_Training():
                 loss = criterion(outputs, labels)
                 adv_outputs = self.model(adv_inputs)
                 adv_loss = criterion(adv_outputs,labels)
-                loss+=adv_loss
+                loss+=(adv_loss*3)
                 loss.backward()
                 optimizer.step()
                 running_loss += loss.item()
