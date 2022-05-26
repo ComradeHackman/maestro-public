@@ -88,6 +88,8 @@ class Adv_Training():
                 optimizer.zero_grad()
                 outputs = self.model(inputs)
                 loss = criterion(outputs, labels)
+                pert_outputs = self.model(adv_inputs)
+                loss += criterion(pert_outputs, labels) * 0.5
                 loss.backward()
                 optimizer.step()
                 running_loss += loss.item()
