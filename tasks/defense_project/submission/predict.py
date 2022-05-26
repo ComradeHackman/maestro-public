@@ -3,6 +3,7 @@ The template for the students to predict the result.
 Please do not change LeNet, the name of get_batch_label, get_batch_output and get_batch_input_gradient function of the Prediction.
 """
 
+from charset_normalizer import detect
 import torch
 import numpy as np
 import torch.nn.functional as F
@@ -43,21 +44,31 @@ class Prediction():
     """
     def __init__(self, device, file_path):
         self.device = device
-        self.model = self.constructor(file_path).to(device)
+        self.model, self.detector_model = self.constructor(file_path)
+        self.model = self.model.to(device)
+        self.detector_model = self.detector_model.to(device)
 
     def constructor(self, file_path=None):
         model = LeNet()
+        detector_model = LeNet()
         if file_path != None:
             model.load_state_dict(torch.load(file_path+'/defense_project-model.pth', map_location=self.device))
+            detector_model.load_state_dict(torch.load(file_path+'/defense_project-detector-model.pth', map_location=self.device))
         model.eval()
-        return model
+        detector_model.eval()
+        return model, detector_model
 
     def preprocess(self, original_images):
         image = torch.unsqueeze(original_images, 0)
         return image
 
     def detect_attack(self, original_image):
-        return False
+        outputs = self.detector_model(original_image).to(self.device)
+        _, predicted = torch.max(outputs, 1)
+        if predicted == 0:
+            return True
+        elif predicted == 1:
+            return False
 
     def get_batch_output(self, images):
         outputs = self.model(images).to(self.device)
