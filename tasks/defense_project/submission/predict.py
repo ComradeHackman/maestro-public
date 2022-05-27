@@ -9,6 +9,8 @@ import numpy as np
 import torch.nn.functional as F
 import torch.nn as nn
 import torch.optim as optim
+import scipy as sp
+import scipy.signal
 
 class LeNet(nn.Module):
     def __init__(self):
