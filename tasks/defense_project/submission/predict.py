@@ -60,7 +60,9 @@ class Prediction():
 
     def preprocess(self, original_images):
         image = torch.unsqueeze(original_images, 0)
-        return image
+        new_image = sp.signal.medfilt(image.cpu().detach().numpy())
+        new_image = (torch.from_numpy(new_image).type(torch.FloatTensor)).to(self.device)
+        return new_image
 
     def detect_attack(self, original_image):
         outputs = self.detector_model(original_image).to(self.device)
