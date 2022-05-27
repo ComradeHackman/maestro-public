@@ -68,7 +68,7 @@ class Adv_Training():
         return attacker
 
 
-    def train(self, trainset, valset, device, epoches=30):
+    def train(self, trainset, valset, device, epoches=19):
         self.model.to(device)
         self.model.train()
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=100, shuffle=True, num_workers=10)
