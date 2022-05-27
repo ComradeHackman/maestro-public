@@ -62,7 +62,9 @@ class Prediction():
 
     def preprocess(self, original_images):
         image = torch.unsqueeze(original_images, 0)
-        new_image = sp.signal.medfilt(image.cpu().detach().numpy())
+        new_image = image.cpu().detach().numpy()[0]
+        new_image = sp.signal.medfilt(new_image,3)
+        new_image = np.expand_dims(new_image, axis=0)
         new_image = (torch.from_numpy(new_image).type(torch.FloatTensor)).to(self.device)
         return new_image
 
