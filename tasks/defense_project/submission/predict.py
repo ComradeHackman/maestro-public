@@ -83,10 +83,11 @@ class Prediction():
     def get_batch_label(self, images):
         predictions = []
         for ini_image in images:
-            image = self.preprocess(ini_image)
-            if self.detect_attack(image):
+            ini_image2 = torch.unsqueeze(ini_image, 0)
+            if self.detect_attack(ini_image2):
                 predictions.append(-1)
             else:
+                image = self.preprocess(ini_image)
                 outputs = self.model(image).to(self.device)
                 _, predicted = torch.max(outputs, 1)
                 predictions.append(predicted)
