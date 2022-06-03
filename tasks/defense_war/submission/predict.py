@@ -8,6 +8,8 @@ import numpy as np
 import torch.nn.functional as F
 import torch.nn as nn
 import torch.optim as optim
+import scipy as sp
+import scipy.signal
 
 class LeNet(nn.Module):
     def __init__(self):
@@ -43,22 +45,36 @@ class Prediction():
     """
     def __init__(self, device, file_path):
         self.device = device
-        self.model = self.constructor(file_path).to(device)
+        self.model, self.detector_model = self.constructor(file_path)
+        self.model = self.model.to(device)
+        self.detector_model = self.detector_model.to(device)
 
     def constructor(self, file_path=None):
         model = LeNet()
+        detector_model = LeNet()
         if file_path != None:
             model.load_state_dict(torch.load(file_path+'/defense_war-model.pth', map_location=self.device))
+            detector_model.load_state_dict(torch.load(file_path+'/defense_war-detector-model.pth', map_location=self.device))        
         model.eval()
-        return model
+        detector_model.eval()
+        return model, detector_model
 
     def preprocess(self, original_images):
-        # image = torch.unsqueeze(original_images, 0)
+        new_image = original_images.cpu().detach().numpy()[0]
+        new_image = sp.signal.medfilt(new_image,3)
+        new_image = np.expand_dims(new_image, axis=0)
+        new_image = (torch.from_numpy(new_image).type(torch.FloatTensor)).to(self.device)
+        return new_image
         return original_images
 
     def detect_attack(self, original_image):
         # return true if original_image is an adversarial example; return false if original_image is benign.
-        return False
+        outputs = self.detector_model(original_image).to(self.device)
+        _, predicted = torch.max(outputs, 1)
+        if predicted == 0:
+            return True
+        elif predicted == 1:
+            return False
 
     def get_batch_output(self, images, with_preprocess=True, skip_detect=False):
         outputs = []

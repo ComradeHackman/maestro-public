@@ -25,29 +25,14 @@ class VirtualModel:
         self.device = device
         self.model = model
 
-    def preprocess(self, original_images):
-        # image = torch.unsqueeze(original_images, 0)
-        return original_images
-
-    def detect_attack(self, original_image):
-        # return true if original_image is an adversarial example; return false if original_image is benign.
-        return False
-
     def get_batch_output(self, images, with_preprocess=True, skip_detect=False):
         outputs = []
         detect_outputs = []
         for ini_image in images:
             image = torch.unsqueeze(ini_image, 0)
-            # detect function
-            if (skip_detect != True) & (self.detect_attack(image) == True):
-                outputs.append(torch.tensor([0,0,0,0]).to(self.device))
-                detect_outputs.append(1)
-            else:
-                if with_preprocess == True:
-                    image = self.preprocess(image)
-                output = self.model(image).to(self.device)
-                outputs.append(output[0])
-                detect_outputs.append(0)
+            output = self.model(image).to(self.device)
+            outputs.append(output[0])
+            detect_outputs.append(0)
         outputs = torch.stack(outputs)
         detect_outputs = torch.tensor(detect_outputs).to(self.device)
         return outputs, detect_outputs
@@ -91,10 +76,10 @@ class Adv_Training():
         return attacker
 
 
-    def train(self, trainset, valset, device, epoches=30):
+    def train(self, trainset, valset, device, epoches=8):
         self.model.to(device)
         self.model.train()
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=100, shuffle=True, num_workers=10)
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=100, shuffle=True, num_workers=30)
         dataset_size = len(trainset)
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(self.model.parameters())
@@ -102,35 +87,59 @@ class Adv_Training():
             running_loss = 0.0
             for i, (inputs, labels) in enumerate(trainloader, 0):
                 # get the inputs; data is a list of [inputs, labels]
-                inputs = inputs.to(device)
-                labels = labels.to(device)
+                og_inputs=inputs
+                og_inputs = og_inputs.to(device)
+                og_labels = torch.tensor([1 for i in labels.detach().cpu().tolist()])
+                og_labels = og_labels.to(device)
+
                 # zero the parameter gradients
-                adv_inputs, _ = self.perturb.attack(inputs, labels.detach().cpu().tolist())
+                adv_inputs, _ = self.perturb.attack(og_inputs, labels.detach().cpu().tolist())
                 adv_inputs = torch.tensor(adv_inputs).to(device)
+
+                adv_labels = torch.tensor([0 for i in labels.detach().cpu().tolist()])
+                adv_labels = adv_labels.to(device)
+
                 # zero the parameter gradients
                 optimizer.zero_grad()
-                outputs = self.model(inputs)
-                loss = criterion(outputs, labels)
-                pert_outputs = self.model(adv_inputs)
-                loss += criterion(pert_outputs, labels) * 0.5
+                og_outputs = self.model(og_inputs)
+                loss = criterion(og_outputs, og_labels)
+                adv_outputs = self.model(adv_inputs)
+                loss += criterion(adv_outputs,adv_labels)
                 loss.backward()
                 optimizer.step()
                 running_loss += loss.item()
+
             print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / dataset_size))
             running_loss = 0.0
         valloader = torch.utils.data.DataLoader(valset, batch_size=100, shuffle=True, num_workers=10)
         correct = 0
         total = 0
-        with torch.no_grad():
-            for inputs, labels in valloader:
-                # print(inputs.shape, labels.shape)
-                inputs = inputs.to(device)
-                labels = labels.to(device)
-                outputs = self.model(inputs)
-                _, predicted = torch.max(outputs.data, 1)
-                total += labels.size(0)
-                correct += (predicted == labels).sum().item()
-        print("Accuracy of the network on the val images: %.3f %%" % (100 * correct / total))
+        for inputs, labels in valloader:
+                #get original inputs and corresponding labels
+                og_inputs=inputs
+                og_inputs = og_inputs.to(device)
+                og_labels = torch.tensor([1 for i in labels.detach().cpu().tolist()])
+                og_labels = og_labels.to(device)
+
+                #make predictions on original inputs and compare to corresponding labels
+                og_outputs = self.model(og_inputs)
+                _, predicted = torch.max(og_outputs.data, 1)
+                total += og_labels.size(0)
+                correct += (predicted == og_labels).sum().item()
+
+                #get attacked inputs and corresponding labels
+                adv_inputs, _ = self.perturb.attack(og_inputs, labels.detach().cpu().tolist())
+                adv_inputs = torch.tensor(adv_inputs).to(device)
+                adv_labels = torch.tensor([0 for i in labels.detach().cpu().tolist()])
+                adv_labels = adv_labels.to(device)
+
+                #make predictions on attacked inputs and compare to corresponding labels
+                adv_outputs = self.model(adv_inputs)
+                _, predicted = torch.max(adv_outputs.data, 1)
+                total += adv_labels.size(0)
+                correct += (predicted == adv_labels).sum().item()
+                
+        print("Accuracy of the detector on the val images: %.3f %%" % (100 * correct / total))
         return
 
 
@@ -151,7 +160,7 @@ def main():
     valset = dataset['val']
     testset = dataset['test']
     adv_training.train(trainset, valset, device)
-    torch.save(adv_training.model.state_dict(), "defense_war-model.pth")
+    torch.save(adv_training.model.state_dict(), "defense_war-detector-model.pth")
 
 
 if __name__ == "__main__":
