@@ -46,6 +46,7 @@ class Prediction():
     def __init__(self, device, file_path):
         self.device = device
         self.model, self.detector_model = self.constructor(file_path)
+        #self.model, self.detector_model = self.constructor(file_path)
         self.model = self.model.to(device)
         self.detector_model = self.detector_model.to(device)
 
@@ -58,6 +59,7 @@ class Prediction():
         model.eval()
         detector_model.eval()
         return model, detector_model
+        #return model
 
     def preprocess(self, original_images):
         new_image = original_images.cpu().detach().numpy()[0]
@@ -65,9 +67,10 @@ class Prediction():
         new_image = np.expand_dims(new_image, axis=0)
         new_image = (torch.from_numpy(new_image).type(torch.FloatTensor)).to(self.device)
         return new_image
+        #return original_images
 
     def detect_attack(self, original_image):
-        # return true if original_image is an adversarial example; return false if original_image is benign.
+        #return true if original_image is an adversarial example; return false if original_image is benign.
         outputs = self.detector_model(original_image).to(self.device)
         _, predicted = torch.max(outputs, 1)
         if predicted == 0:
