@@ -65,7 +65,9 @@ class Adv_Training():
         self.min_val = min_val
         self.max_val = max_val
         self.target_label = target_label
-        self.perturbntFGSM = self.load_perturb("../attacker_list/nontarget_FGSM")
+        self.perturbFGSM = self.load_perturb("../attacker_list/target_FGSM")
+        self.perturbPGD = self.load_perturb("../attacker_list/target_PGD")
+        self.perturbGenetic = self.load_perturb("../attacker_list/target_genetic")
 
     def load_perturb(self, attack_path):
         spec = importlib.util.spec_from_file_location('attack', attack_path + '/attack.py')
@@ -89,14 +91,15 @@ class Adv_Training():
                 # get the inputs; data is a list of [inputs, labels]
                 og_inputs=inputs
                 og_inputs = og_inputs.to(device)
-                og_labels = torch.tensor([1 for i in labels.detach().cpu()])
+                og_labels = torch.tensor([1 for i in labels])
                 og_labels = og_labels.to(device)
 
-                # zero the parameter gradients
-                adv_inputs, _ = self.perturbntFGSM.attack(og_inputs, labels.detach().cpu())
+                attack_label = 1
+                # get FGSM perturbed images
+                adv_inputs, _ = self.perturbFGSM.attack(og_inputs, labels, target_label=attack_label)
                 adv_inputs = torch.tensor(adv_inputs).to(device)
 
-                adv_labels = torch.tensor([0 for i in labels.detach().cpu()])
+                adv_labels = torch.tensor([0 for i in labels])
                 adv_labels = adv_labels.to(device)
 
                 # zero the parameter gradients
@@ -118,7 +121,7 @@ class Adv_Training():
                 #get original inputs and corresponding labels
                 og_inputs=inputs
                 og_inputs = og_inputs.to(device)
-                og_labels = torch.tensor([1 for i in labels.detach().cpu()])
+                og_labels = torch.tensor([1 for i in labels])
                 og_labels = og_labels.to(device)
 
                 #make predictions on original inputs and compare to corresponding labels
@@ -126,11 +129,12 @@ class Adv_Training():
                 _, predicted = torch.max(og_outputs.data, 1)
                 total += og_labels.size(0)
                 correct += (predicted == og_labels).sum().item()
-
+                
+                attack_label = 1
                 #get attacked inputs and corresponding labels
-                adv_inputs, _ = self.perturbntFGSM.attack(og_inputs, labels.detach().cpu())
+                adv_inputs, _ = self.perturbFGSM.attack(og_inputs, labels, target_label=attack_label)
                 adv_inputs = torch.tensor(adv_inputs).to(device)
-                adv_labels = torch.tensor([0 for i in labels.detach().cpu()])
+                adv_labels = torch.tensor([0 for i in labels])
                 adv_labels = adv_labels.to(device)
 
                 #make predictions on attacked inputs and compare to corresponding labels
