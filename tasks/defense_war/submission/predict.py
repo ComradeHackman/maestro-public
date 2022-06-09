@@ -65,7 +65,6 @@ class Prediction():
         new_image = np.expand_dims(new_image, axis=0)
         new_image = (torch.from_numpy(new_image).type(torch.FloatTensor)).to(self.device)
         return new_image
-        return original_images
 
     def detect_attack(self, original_image):
         # return true if original_image is an adversarial example; return false if original_image is benign.
