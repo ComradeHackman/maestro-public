@@ -65,7 +65,8 @@ class Adv_Training():
         self.min_val = min_val
         self.max_val = max_val
         self.target_label = target_label
-        self.perturbFGSM = self.load_perturb("../attacker_list/target_FGSM")
+        self.perturbFGSM = self.load_perturb("../attacker_list/nontarget_FGSM")
+        #self.perturbFGSM = self.load_perturb("../attacker_list/target_FGSM")
         self.perturbPGD = self.load_perturb("../attacker_list/target_PGD")
         self.perturbGenetic = self.load_perturb("../attacker_list/target_genetic")
 
@@ -78,13 +79,14 @@ class Adv_Training():
         return attacker
 
 
-    def train(self, trainset, valset, device, epoches=13):
+    def train(self, trainset, valset, device, epoches=3):
         self.model.to(device)
         self.model.train()
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=100, shuffle=True, num_workers=30)
         dataset_size = len(trainset)
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(self.model.parameters())
+        attack_label = 0
         for epoch in range(epoches):  # loop over the dataset multiple times
             running_loss = 0.0
             for i, (inputs, labels) in enumerate(trainloader, 0):
@@ -94,9 +96,9 @@ class Adv_Training():
                 og_labels = torch.tensor([1 for i in labels])
                 og_labels = og_labels.to(device)
 
-                attack_label = 1
                 # get FGSM perturbed images
-                adv_inputs, _ = self.perturbFGSM.attack(og_inputs, labels, target_label=attack_label)
+                adv_inputs, _ = self.perturbFGSM.attack(og_inputs, labels)
+                #adv_inputs, _ = self.perturbFGSM.attack(og_inputs, labels, target_label=attack_label)
                 adv_inputs = torch.tensor(adv_inputs).to(device)
 
                 adv_labels = torch.tensor([0 for i in labels])
@@ -130,9 +132,9 @@ class Adv_Training():
                 total += og_labels.size(0)
                 correct += (predicted == og_labels).sum().item()
                 
-                attack_label = 1
                 #get attacked inputs and corresponding labels
-                adv_inputs, _ = self.perturbFGSM.attack(og_inputs, labels, target_label=attack_label)
+                #adv_inputs, _ = self.perturbFGSM.attack(og_inputs, labels, target_label=attack_label)
+                adv_inputs, _ = self.perturbFGSM.attack(og_inputs, labels)
                 adv_inputs = torch.tensor(adv_inputs).to(device)
                 adv_labels = torch.tensor([0 for i in labels])
                 adv_labels = adv_labels.to(device)
